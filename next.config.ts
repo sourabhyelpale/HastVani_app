@@ -1,11 +1,28 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // 👈 enables static export (replaces `next export`)
+  // Use standalone for Docker, export for Capacitor mobile
+  output: process.env.BUILD_MODE === 'capacitor' ? 'export' : 'standalone',
   images: {
-    unoptimized: true, // 👈 required if you use <Image /> in static export
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.example.com',
+      },
+    ],
   },
-  trailingSlash: true, // 👈 optional but helps with static routes in Capacitor
+  trailingSlash: true,
+  // Environment variables available on the client
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_ML_API_URL: process.env.NEXT_PUBLIC_ML_API_URL,
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+  },
 };
 
 export default nextConfig;
