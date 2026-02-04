@@ -16,7 +16,7 @@ export default function LessonsPage() {
             title={lesson.title}
             subtitle={lesson.subtitle}
             progress={lesson.progress}
-            // later: link={`/lessons/${lesson.id}`}
+            link={`/lessons/${lesson.id}`}
           />
         ))}
       </div>

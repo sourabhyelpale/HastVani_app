@@ -1,19 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { moduleApi, lessonApi } from '@/lib/api';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { useAuthStore } from '@/store/authStore';
 import type { Module, Lesson, DifficultyLevel } from '@/types';
 
 export default function ModuleDetailPage() {
   const router = useRouter();
   const params = useParams();
   const moduleId = params.id as string;
+  const user = useAuthStore((state) => state.user);
 
   const [module, setModule] = useState<Module | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Get completed lessons from user data
+  const completedLessonIds = useMemo(() => {
+    return new Set(user?.completedLessons || []);
+  }, [user?.completedLessons]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -92,7 +99,11 @@ export default function ModuleDetailPage() {
     );
   }
 
-  const completedCount = 0; // TODO: Fetch from user progress
+  // Calculate completed count from user's completed lessons
+  const completedCount = useMemo(() => {
+    return lessons.filter(lesson => completedLessonIds.has(lesson._id)).length;
+  }, [lessons, completedLessonIds]);
+
   const progressPercent = lessons.length > 0 ? (completedCount / lessons.length) * 100 : 0;
 
   return (
@@ -167,8 +178,10 @@ export default function ModuleDetailPage() {
 
           <div className="space-y-3">
             {lessons.map((lesson, index) => {
-              const isCompleted = false; // TODO: Check from user progress
-              const isLocked = index > 0 && !isCompleted; // Simple lock logic
+              const isCompleted = completedLessonIds.has(lesson._id);
+              // Unlock if: first lesson, or previous lesson is completed, or this lesson is completed
+              const previousLessonCompleted = index === 0 || completedLessonIds.has(lessons[index - 1]._id);
+              const isLocked = !isCompleted && !previousLessonCompleted;
 
               return (
                 <button
@@ -249,10 +262,18 @@ export default function ModuleDetailPage() {
         {lessons.length > 0 && (
           <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 dark:from-gray-900">
             <button
-              onClick={() => router.push(`/lessons/${lessons[0]._id}`)}
+              onClick={() => {
+                // Find the first incomplete lesson
+                const nextLesson = lessons.find(lesson => !completedLessonIds.has(lesson._id));
+                router.push(`/lessons/${nextLesson?._id || lessons[0]._id}`);
+              }}
               className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
-              {completedCount > 0 ? 'Continue Learning' : 'Start Module'}
+              {completedCount === lessons.length
+                ? 'Review Module'
+                : completedCount > 0
+                ? 'Continue Learning'
+                : 'Start Module'}
             </button>
           </div>
         )}
