@@ -9,6 +9,7 @@ import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import type { UserRole } from '@/types';
+import { ROUTES, ROLES } from '@/lib/config';
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -20,7 +21,7 @@ interface RoleGuardProps {
 export default function RoleGuard({
   children,
   allowedRoles,
-  redirectTo = '/',
+  redirectTo = ROUTES.DASHBOARD,
   fallback,
 }: RoleGuardProps) {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function RoleGuard({
   // Not authenticated
   if (!isAuthenticated || !user) {
     if (typeof window !== 'undefined') {
-      router.push('/login');
+      router.push(ROUTES.LOGIN);
     }
     return fallback || <LoadingState />;
   }
@@ -54,7 +55,7 @@ function LoadingState() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto" />
         <p className="mt-4 text-gray-600 dark:text-gray-400">Checking permissions...</p>
       </div>
     </div>
@@ -102,9 +103,9 @@ export function useRoleCheck(allowedRoles: UserRole[]) {
     isLoading,
     hasAccess,
     role: user?.role,
-    isAdmin: user?.role === 'admin',
-    isTeacher: user?.role === 'teacher',
-    isStudent: user?.role === 'student',
+    isAdmin: user?.role === ROLES.ADMIN,
+    isTeacher: user?.role === ROLES.TEACHER,
+    isStudent: user?.role === ROLES.STUDENT,
   };
 }
 
@@ -126,13 +127,13 @@ export function ShowForRole({ roles, children, fallback = null }: ShowForRolePro
 
 // Convenience components
 export function AdminOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  return <ShowForRole roles={['admin']} fallback={fallback}>{children}</ShowForRole>;
+  return <ShowForRole roles={[ROLES.ADMIN]} fallback={fallback}>{children}</ShowForRole>;
 }
 
 export function TeacherOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  return <ShowForRole roles={['teacher', 'admin']} fallback={fallback}>{children}</ShowForRole>;
+  return <ShowForRole roles={[ROLES.TEACHER, ROLES.ADMIN]} fallback={fallback}>{children}</ShowForRole>;
 }
 
 export function StudentOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  return <ShowForRole roles={['student']} fallback={fallback}>{children}</ShowForRole>;
+  return <ShowForRole roles={[ROLES.STUDENT]} fallback={fallback}>{children}</ShowForRole>;
 }

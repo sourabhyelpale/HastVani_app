@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { authApi, setTokens, clearTokens } from '@/lib/api';
 import type { User, LoginCredentials, RegisterData, UserRole } from '@/types';
+import { ROLES } from '@/lib/config';
 
 interface AuthState {
   user: User | null;
@@ -148,9 +149,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // Role check helpers
-      isAdmin: () => get().user?.role === 'admin',
-      isTeacher: () => get().user?.role === 'teacher',
-      isStudent: () => get().user?.role === 'student',
+      isAdmin: () => get().user?.role === ROLES.ADMIN,
+      isTeacher: () => get().user?.role === ROLES.TEACHER,
+      isStudent: () => get().user?.role === ROLES.STUDENT,
       hasRole: (role: UserRole) => get().user?.role === role,
     }),
     {

@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { gamificationApi, userApi } from '@/lib/api';
-import { config } from '@/lib/config';
+import { config, getLevelFromXP, getXPForLevel } from '@/lib/config';
 import type { UserStats, Achievement, UserAchievement, LeaderboardEntry } from '@/types';
 
 interface UserState {
@@ -111,7 +111,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   refillHearts: async () => {
     const currentStats = get().stats;
-    if (!currentStats || currentStats.gems < config.refillHeartsGemsCost) {
+    if (!currentStats || currentStats.gems < config.GAMIFICATION_CONFIG.REFILL_HEARTS_GEMS_COST) {
       set({ error: 'Not enough gems to refill hearts' });
       return false;
     }
@@ -119,9 +119,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     try {
       const response = await gamificationApi.refillHearts();
       const { hearts, gems } = response.data.data;
-      set({
-        stats: { ...currentStats, hearts, gems },
-      });
+      set({ stats: { ...currentStats, hearts, gems } });
       return true;
     } catch {
       set({ error: 'Failed to refill hearts' });
@@ -131,7 +129,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   useStreakFreeze: async () => {
     const currentStats = get().stats;
-    if (!currentStats || currentStats.gems < config.streakFreezeGemsCost) {
+    if (!currentStats || currentStats.gems < config.GAMIFICATION_CONFIG.STREAK_FREEZE_GEMS_COST) {
       set({ error: 'Not enough gems for streak freeze' });
       return false;
     }
@@ -139,9 +137,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     try {
       const response = await gamificationApi.useStreakFreeze();
       const { streak, gems, streakFreezeAvailable } = response.data.data;
-      set({
-        stats: { ...currentStats, streak, gems, streakFreezeAvailable },
-      });
+      set({ stats: { ...currentStats, streak, gems, streakFreezeAvailable } });
       return true;
     } catch {
       set({ error: 'Failed to use streak freeze' });
@@ -164,17 +160,13 @@ export const useUserStore = create<UserState>((set, get) => ({
     const newDailyXp = currentStats.dailyXp + amount;
     const dailyGoalMet = newDailyXp >= currentStats.dailyGoal;
 
-    // Calculate new level
-    let newLevel = currentStats.level;
-    let xpForNextLevel = currentStats.xpForNextLevel;
-
-    while (newXp >= xpForNextLevel && newLevel < config.levelThresholds.length) {
-      newLevel++;
-      xpForNextLevel = config.levelThresholds[newLevel] || xpForNextLevel * 1.5;
-    }
-
-    const previousLevelXp = config.levelThresholds[newLevel - 1] || 0;
-    const xpProgress = ((newXp - previousLevelXp) / (xpForNextLevel - previousLevelXp)) * 100;
+    const newLevel = getLevelFromXP(newXp);
+    const xpForNextLevel = getXPForLevel(newLevel + 1);
+    const previousLevelXp = getXPForLevel(newLevel);
+    
+    const xpProgress = xpForNextLevel > previousLevelXp 
+      ? ((newXp - previousLevelXp) / (xpForNextLevel - previousLevelXp)) * 100 
+      : 100;
 
     set({
       stats: {
@@ -182,7 +174,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         xp: newXp,
         level: newLevel,
         xpForNextLevel,
-        xpProgress,
+        xpProgress: Math.min(100, Math.max(0, xpProgress)),
         dailyXp: newDailyXp,
         dailyGoalMet,
       },

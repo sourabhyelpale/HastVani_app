@@ -5,7 +5,7 @@ import { lessonsData } from "../../constants/data";
 
 export default function LessonsPage() {
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 pb-24">
       <CustomHeader title="Lessons" />
 
       <div className="mt-6">

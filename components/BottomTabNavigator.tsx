@@ -2,49 +2,93 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  Home, BookOpen, Hand, Trophy, User,
+  Settings, School, LayoutGrid, ClipboardList, BarChart2,
+} from 'lucide-react';
+import { ROUTES, ROLES } from '@/lib/config';
+import { useAuthStore } from '@/store/authStore';
+import { cn } from '@/lib/utils';
+
+type Tab = { name: string; icon: React.ElementType; href: string };
+
+const adminTabs: Tab[] = [
+  { name: 'Admin', icon: Settings, href: ROUTES.ADMIN },
+  { name: 'Classes', icon: School, href: ROUTES.CLASSES },
+  { name: 'Modules', icon: LayoutGrid, href: ROUTES.MODULES },
+  { name: 'Analytics', icon: BarChart2, href: ROUTES.ADMIN_ANALYTICS },
+  { name: 'Profile', icon: User, href: ROUTES.PROFILE },
+];
+
+const studentTabs: Tab[] = [
+  { name: 'Home', icon: Home, href: ROUTES.DASHBOARD },
+  { name: 'Learn', icon: BookOpen, href: ROUTES.MODULES },
+  { name: 'Practice', icon: Hand, href: ROUTES.PRACTICE },
+  { name: 'Stats', icon: BarChart2, href: ROUTES.ANALYTICS },
+  { name: 'Profile', icon: User, href: ROUTES.PROFILE },
+];
+
+const teacherTabs: Tab[] = [
+  { name: 'Home', icon: Home, href: ROUTES.TEACHER },
+  { name: 'Classes', icon: School, href: ROUTES.CLASSES },
+  { name: 'Grades', icon: ClipboardList, href: ROUTES.TEACHER_GRADEBOOK },
+  { name: 'Analytics', icon: BarChart2, href: ROUTES.TEACHER_ANALYTICS },
+  { name: 'Profile', icon: User, href: ROUTES.PROFILE },
+];
 
 export default function BottomTabNavigator() {
   const pathname = usePathname();
+  const { user } = useAuthStore();
+  const isTeacher = user?.role === ROLES.TEACHER;
+  const isAdmin = user?.role === ROLES.ADMIN;
 
-  const tabs = [
-    { name: 'Home', icon: '🏠', activeIcon: '🏠', href: '/dashboard' },
-    { name: 'Learn', icon: '📚', activeIcon: '📖', href: '/modules' },
-    { name: 'Practice', icon: '🤟', activeIcon: '🤟', href: '/practice' },
-    { name: 'Ranks', icon: '🏆', activeIcon: '🏆', href: '/leaderboard' },
-    { name: 'Profile', icon: '👤', activeIcon: '👤', href: '/profile' },
-  ];
+  const tabs = isAdmin ? adminTabs : isTeacher ? teacherTabs : studentTabs;
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return pathname === '/' || pathname === '/dashboard';
-    }
+    if (href === ROUTES.DASHBOARD) return pathname === '/' || pathname === ROUTES.DASHBOARD;
+    if (href === ROUTES.TEACHER) return pathname === ROUTES.TEACHER;
+    if (href === ROUTES.ADMIN) return pathname === ROUTES.ADMIN;
     return pathname.startsWith(href);
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 safe-area-pb z-50">
-      <div className="max-w-lg mx-auto flex justify-around items-center py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border">
+      <div className="max-w-lg mx-auto flex justify-around items-center h-16 px-2">
         {tabs.map((tab) => {
           const active = isActive(tab.href);
+          const Icon = tab.icon;
           return (
             <Link
               key={tab.name}
               href={tab.href}
-              className={`flex flex-col items-center min-w-[60px] py-1 px-2 rounded-lg transition-all ${
+              className={cn(
+                'flex flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl transition-all min-w-[56px]',
                 active
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
             >
-              <span className={`text-2xl transition-transform ${active ? 'scale-110' : ''}`}>
-                {active ? tab.activeIcon : tab.icon}
-              </span>
-              <span className={`text-xs mt-0.5 font-medium ${active ? 'text-green-600 dark:text-green-400' : ''}`}>
+              <div
+                className={cn(
+                  'flex items-center justify-center w-8 h-6 rounded-lg transition-all',
+                  active && 'bg-primary/15'
+                )}
+              >
+                <Icon
+                  className={cn(
+                    'transition-all',
+                    active ? 'h-5 w-5 stroke-[2.5]' : 'h-5 w-5'
+                  )}
+                />
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-medium leading-none transition-all',
+                  active ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
                 {tab.name}
               </span>
-              {active && (
-                <span className="absolute bottom-0 w-8 h-1 bg-green-500 rounded-t-full"></span>
-              )}
             </Link>
           );
         })}

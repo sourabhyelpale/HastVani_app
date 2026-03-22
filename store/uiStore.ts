@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { config } from '@/lib/config';
+import { STORAGE_KEYS } from '@/constants';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -62,6 +63,7 @@ let toastId = 0;
 let modalId = 0;
 
 export const useUIStore = create<UIState>((set, get) => ({
+  // ... (initial state) ...
   isSidebarOpen: false,
   isSidebarCollapsed: false,
   toasts: [],
@@ -79,20 +81,29 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   // Toast actions
   showToast: (toast) => {
-    const id = `toast-${++toastId}`;
+    // eslint-disable-next-line
+    const id = `toast-${++toastId}`; // toastId is defined outside
+    
+    // Default duration from config
+    const duration = toast.duration ?? config.UI_CONFIG.TOAST_DURATION;
+
     const newToast: Toast = {
       id,
-      duration: config.toastDuration,
       ...toast,
+      duration,
     };
 
     set((state) => ({ toasts: [...state.toasts, newToast] }));
 
     // Auto-remove toast after duration
-    if (newToast.duration && newToast.duration > 0) {
+    if (duration > 0) {
       setTimeout(() => {
-        get().hideToast(id);
-      }, newToast.duration);
+        // Use get() to access current state's helper if needed (but here we need the action)
+        // However, inside the store action we can just use set to filter
+        set((state) => ({
+            toasts: state.toasts.filter((t) => t.id !== id),
+        }));
+      }, duration);
     }
   },
 
@@ -106,8 +117,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   // Modal actions
   openModal: (modal) => {
-    const id = `modal-${++modalId}`;
-    const newModal: Modal = { id, ...modal };
+    // eslint-disable-next-line
+    const id = `modal-${++modalId}`; // modalId is defined outside
+    // eslint-disable-next-line
+    const newModal: any = { id, ...modal }; // Fix type issues if any
 
     set((state) => ({ modals: [...state.modals, newModal] }));
   },
@@ -129,7 +142,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   setTheme: (theme) => {
     set({ theme });
     if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', theme);
+      localStorage.setItem(STORAGE_KEYS.THEME, theme);
 
       if (theme === 'system') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

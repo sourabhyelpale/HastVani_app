@@ -68,7 +68,7 @@ export interface RegisterData {
 }
 
 // Module & Lesson Types
-export type ModuleCategory = 'alphabet' | 'numbers' | 'greetings' | 'common_phrases' | 'vocabulary' | 'sentences' | 'conversation';
+export type ModuleCategory = 'alphabet' | 'numbers' | 'words' | 'phrases' | 'conversations' | 'vocabulary' | 'custom';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 export type LessonType = 'video' | 'practice' | 'quiz' | 'mixed';
 export type ContentBlockType = 'text' | 'video' | 'image' | 'gesture_demo' | 'practice';
@@ -76,7 +76,7 @@ export type QuestionType = 'multiple_choice' | 'gesture_recognition' | 'matching
 
 export interface Module {
   _id: string;
-  title: string;
+  moduleName: string;
   description: string;
   category: ModuleCategory;
   difficulty: DifficultyLevel;
@@ -110,14 +110,14 @@ export interface Question {
 
 export interface Lesson {
   _id: string;
-  module: string;
+  moduleId: string;
   title: string;
   description: string;
   type: LessonType;
   content: ContentBlock[];
   questions: Question[];
   order: number;
-  duration: number;
+  estimatedTime: number;
   xpReward: number;
   isPublished: boolean;
 }
@@ -151,30 +151,40 @@ export interface Progress {
   xpEarned: number;
 }
 
-// Class Types
+// Class Types (backend uses className and participants)
 export interface Class {
   _id: string;
-  name: string;
-  description: string;
-  teacher: string | User;
-  students: string[];
-  classCode: string;
+  className: string;
+  name?: string; // Alias for className for backward compatibility
+  description?: string;
+  createdBy?: string | User;
+  teacher?: string | User;
+  participants?: string[] | User[];
+  students?: string[] | User[]; // Alias for participants
+  classCode?: string;
   modules: string[];
   assignments: string[];
-  settings: {
-    allowSelfEnroll: boolean;
-    maxStudents: number;
-    requireApproval: boolean;
+  settings?: {
+    allowLateSubmissions?: boolean;
+    autoGrading?: boolean;
+    showLeaderboard?: boolean;
+    maxStudents?: number;
+    allowSelfEnroll?: boolean;
+    requireApproval?: boolean;
   };
-  isActive: boolean;
+  isOpen?: boolean;
+  isArchived?: boolean;
+  isActive?: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // Assignment Types
 export interface Assignment {
   _id: string;
   class: string;
-  title: string;
+  assignName: string;
+  title?: string; // Alias for assignName (backend uses assignName)
   description: string;
   type: 'lesson' | 'quiz' | 'practice' | 'gesture';
   content: {

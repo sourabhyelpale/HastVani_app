@@ -22,6 +22,13 @@ export default function ModuleDetailPage() {
     return new Set(user?.completedLessons || []);
   }, [user?.completedLessons]);
 
+  // Calculate completed count from user's completed lessons
+  const completedCount = useMemo(() => {
+    return lessons.filter(lesson => completedLessonIds.has(lesson._id)).length;
+  }, [lessons, completedLessonIds]);
+
+  const progressPercent = lessons.length > 0 ? (completedCount / lessons.length) * 100 : 0;
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -99,13 +106,6 @@ export default function ModuleDetailPage() {
     );
   }
 
-  // Calculate completed count from user's completed lessons
-  const completedCount = useMemo(() => {
-    return lessons.filter(lesson => completedLessonIds.has(lesson._id)).length;
-  }, [lessons, completedLessonIds]);
-
-  const progressPercent = lessons.length > 0 ? (completedCount / lessons.length) * 100 : 0;
-
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
@@ -130,7 +130,7 @@ export default function ModuleDetailPage() {
               >
                 {module.difficulty}
               </span>
-              <h1 className="text-2xl font-bold">{module.title}</h1>
+              <h1 className="text-2xl font-bold">{module.moduleName}</h1>
               <p className="text-blue-100 mt-2">{module.description}</p>
             </div>
           </div>
@@ -233,7 +233,7 @@ export default function ModuleDetailPage() {
                     <div className="flex items-center space-x-3 text-sm text-gray-500 mt-1">
                       <span className="capitalize">{lesson.type}</span>
                       <span>•</span>
-                      <span>{lesson.duration} min</span>
+                      <span>{lesson.estimatedTime} min</span>
                       <span>•</span>
                       <span>{lesson.xpReward} XP</span>
                     </div>

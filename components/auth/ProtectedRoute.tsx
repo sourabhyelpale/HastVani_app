@@ -8,6 +8,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { AUTH_CONFIG, ROUTES } from '@/lib/config';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,7 +18,7 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({
   children,
-  redirectTo = '/login',
+  redirectTo = ROUTES.LOGIN,
   fallback,
 }: ProtectedRouteProps) {
   const router = useRouter();
@@ -34,14 +35,19 @@ export default function ProtectedRoute({
 
       // Check if we have a stored token and try to fetch user
       const token = typeof window !== 'undefined'
-        ? localStorage.getItem('isl_access_token')
+        ? localStorage.getItem(AUTH_CONFIG.ACCESS_TOKEN_KEY)
         : null;
 
       if (token) {
         await fetchCurrentUser();
+      } else {
+        setIsChecking(false);
       }
-
-      setIsChecking(false);
+      
+      // We set checking to false after attempting fetch or if no token
+      // Wait for fetchCurrentUser to complete (it sets loading false in store)
+      // But here we need to know locally
+      if (!token) setIsChecking(false);
     };
 
     checkAuth();
@@ -49,6 +55,7 @@ export default function ProtectedRoute({
 
   // Redirect if not authenticated after check
   useEffect(() => {
+    // If not checking, not loading store, and not authenticated -> redirect
     if (!isChecking && !isLoading && !isAuthenticated) {
       router.push(redirectTo);
     }
@@ -59,7 +66,7 @@ export default function ProtectedRoute({
     return fallback || <LoadingScreen />;
   }
 
-  // Don't render children if not authenticated
+  // Don't render children if not authenticated (should redirect)
   if (!isAuthenticated) {
     return fallback || <LoadingScreen />;
   }
@@ -71,7 +78,7 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto" />
         <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
       </div>
     </div>
@@ -79,7 +86,7 @@ function LoadingScreen() {
 }
 
 // Hook version for more flexible usage
-export function useProtectedRoute(redirectTo = '/login') {
+export function useProtectedRoute(redirectTo = ROUTES.LOGIN) {
   const router = useRouter();
   const { isAuthenticated, isLoading, fetchCurrentUser } = useAuthStore();
   const [isReady, setIsReady] = useState(false);
@@ -92,7 +99,7 @@ export function useProtectedRoute(redirectTo = '/login') {
       }
 
       const token = typeof window !== 'undefined'
-        ? localStorage.getItem('isl_access_token')
+        ? localStorage.getItem(AUTH_CONFIG.ACCESS_TOKEN_KEY)
         : null;
 
       if (token) {

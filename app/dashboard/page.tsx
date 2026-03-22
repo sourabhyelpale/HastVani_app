@@ -2,236 +2,312 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Flame, Gem, Star, Heart, BookOpen, Trophy,
+  Target, ChevronRight, Sparkles,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { gamificationApi, moduleApi, lessonApi } from '@/lib/api';
+import { gamificationApi, moduleApi } from '@/lib/api';
+import { ROUTES, ROLES } from '@/lib/config';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { UserStats, Module } from '@/types';
 
-interface DailyProgress {
-  lessonsCompleted: number;
-  xpEarned: number;
-  questionsAnswered: number;
-  gesturesPracticed: number;
+interface ModuleWithProgress extends Module {
+  progress?: { completedLessons: number; totalLessons: number; percentage: number };
+}
+
+interface LessonInfo {
+  _id: string;
+  title?: string;
+  type?: string;
+  estimatedTime?: number;
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { user } = useAuthStore();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, modulesRes] = await Promise.all([
-          gamificationApi.getMyStats(),
-          moduleApi.getAll({ published: true }),
-        ]);
-        setStats(statsRes.data.data);
-        setModules(modulesRes.data.data || []);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-        </div>
-      </ProtectedRoute>
-    );
-  }
+  const isTeacher = user?.role === ROLES.TEACHER;
+  const isAdmin = user?.role === ROLES.ADMIN;
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Welcome back, {user?.firstName}!</h1>
-              <p className="text-green-100 mt-1">Keep up the great work!</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Streak */}
-              <div className="flex items-center bg-white/20 rounded-lg px-3 py-2">
-                <span className="text-2xl mr-2">🔥</span>
-                <span className="font-bold">{stats?.streak || 0}</span>
-              </div>
-              {/* Gems */}
-              <div className="flex items-center bg-white/20 rounded-lg px-3 py-2">
-                <span className="text-2xl mr-2">💎</span>
-                <span className="font-bold">{stats?.gems || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* XP Progress */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Level</span>
-                <span className="text-2xl">⭐</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.level || 1}</p>
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-yellow-500 h-2 rounded-full transition-all"
-                    style={{ width: `${stats?.xpProgress || 0}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats?.xp || 0} / {stats?.xpForNextLevel || 100} XP
-                </p>
-              </div>
-            </div>
-
-            {/* Hearts */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Hearts</span>
-                <span className="text-2xl">❤️</span>
-              </div>
-              <div className="flex space-x-1">
-                {Array.from({ length: stats?.maxHearts || 5 }).map((_, i) => (
-                  <span key={i} className="text-xl">
-                    {i < (stats?.hearts || 0) ? '❤️' : '🤍'}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Lessons Completed */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Lessons</span>
-                <span className="text-2xl">📚</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.completedLessonsCount || 0}
-              </p>
-              <p className="text-xs text-gray-500">completed</p>
-            </div>
-
-            {/* Achievements */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Badges</span>
-                <span className="text-2xl">🏆</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.achievementsCount || 0}
-              </p>
-              <p className="text-xs text-gray-500">earned</p>
-            </div>
-          </div>
-
-          {/* Daily Goal */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Daily Goal</h3>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                stats?.dailyGoalMet
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {stats?.dailyGoalMet ? 'Complete!' : 'In Progress'}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
-              <div
-                className={`h-4 rounded-full transition-all ${
-                  stats?.dailyGoalMet ? 'bg-green-500' : 'bg-blue-500'
-                }`}
-                style={{
-                  width: `${Math.min(((stats?.dailyXp || 0) / (stats?.dailyGoal || 20)) * 100, 100)}%`
-                }}
-              ></div>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              {stats?.dailyXp || 0} / {stats?.dailyGoal || 20} XP today
-            </p>
-          </div>
-
-          {/* Continue Learning */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Continue Learning</h2>
-              <button
-                onClick={() => router.push('/modules')}
-                className="text-green-600 text-sm font-medium"
-              >
-                See All
-              </button>
-            </div>
-            <div className="space-y-3">
-              {modules.slice(0, 3).map((module) => (
-                <button
-                  key={module._id}
-                  onClick={() => router.push(`/modules/${module._id}`)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center space-x-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-2xl">
-                    {getCategoryIcon(module.category)}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h3 className="font-medium text-gray-900 dark:text-white">{module.title}</h3>
-                    <p className="text-sm text-gray-500">{module.lessons?.length || 0} lessons</p>
-                  </div>
-                  <div className="flex items-center text-gray-400">
-                    <span className="text-sm capitalize">{module.difficulty}</span>
-                    <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => router.push('/practice')}
-              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <span className="text-3xl block mb-2">🤟</span>
-              <span className="font-medium">Practice Signs</span>
-            </button>
-            <button
-              onClick={() => router.push('/leaderboard')}
-              className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <span className="text-3xl block mb-2">🏆</span>
-              <span className="font-medium">Leaderboard</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      {isAdmin ? <AdminDashboard /> : isTeacher ? <TeacherDashboard /> : <StudentDashboard />}
     </ProtectedRoute>
   );
 }
 
-function getCategoryIcon(category: string): string {
-  const icons: Record<string, string> = {
-    alphabet: '🔤',
-    numbers: '🔢',
-    greetings: '👋',
-    common_phrases: '💬',
-    vocabulary: '📖',
-    sentences: '📝',
-    conversation: '🗣️',
+/* ─── Admin ────────────────────────────────────────────────────────────── */
+function AdminDashboard() {
+  const router = useRouter();
+  router.replace('/admin');
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center space-y-3">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto" />
+        <p className="text-muted-foreground text-sm">Redirecting to admin panel…</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Teacher ───────────────────────────────────────────────────────────── */
+function TeacherDashboard() {
+  const router = useRouter();
+  router.replace('/teacher');
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center space-y-3">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto" />
+        <p className="text-muted-foreground text-sm">Redirecting to teacher dashboard…</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Student ───────────────────────────────────────────────────────────── */
+function StudentDashboard() {
+  const router = useRouter();
+  const { user } = useAuthStore();
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [modules, setModules] = useState<ModuleWithProgress[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const getTodaysLesson = (): { lesson: LessonInfo; module: ModuleWithProgress } | null => {
+    for (const module of modules) {
+      const lessons = (module.lessons || []) as unknown as LessonInfo[];
+      const completed = module.progress?.completedLessons ?? 0;
+      if (lessons.length > 0 && completed < lessons.length) {
+        const next = typeof lessons[completed] === 'object'
+          ? lessons[completed]
+          : { _id: lessons[completed] as unknown as string };
+        return { lesson: next, module };
+      }
+    }
+    return null;
   };
-  return icons[category] || '📚';
+
+  useEffect(() => {
+    Promise.all([
+      gamificationApi.getMyStats(),
+      moduleApi.getAll({ published: true }),
+    ])
+      .then(([statsRes, modulesRes]) => {
+        setStats(statsRes.data.data);
+        setModules(modulesRes.data.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const todaysLesson = getTodaysLesson();
+  const xpPercent = stats ? Math.min(((stats.xp || 0) / (stats.xpForNextLevel || 100)) * 100, 100) : 0;
+  const dailyPercent = stats ? Math.min(((stats.dailyXp || 0) / (stats.dailyGoal || 20)) * 100, 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4 pb-24">
+        <div className="max-w-2xl mx-auto space-y-5 pt-2">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-20 rounded-2xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-4 pb-24">
+      <div className="max-w-2xl mx-auto space-y-5">
+        {/* Greeting */}
+        <div className="pt-2">
+          <h1 className="text-2xl font-bold">Hey, {user?.firstName}! 👋</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Keep up the great work</p>
+        </div>
+
+        {/* Streak & Gems */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25">
+            <Flame className="h-6 w-6 mb-2 opacity-90" />
+            <div className="text-3xl font-bold">{stats?.streak || 0}</div>
+            <div className="text-xs opacity-80 mt-0.5">Day Streak</div>
+          </div>
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-blue-500 to-violet-600 text-white shadow-lg shadow-blue-500/25">
+            <Gem className="h-6 w-6 mb-2 opacity-90" />
+            <div className="text-3xl font-bold">{stats?.gems || 0}</div>
+            <div className="text-xs opacity-80 mt-0.5">Gems</div>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Level / XP */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Star className="h-4 w-4 text-amber-500" />
+                <span className="text-xs text-muted-foreground font-medium">Level</span>
+              </div>
+              <div className="text-2xl font-bold mb-2">{stats?.level || 1}</div>
+              <Progress value={xpPercent} className="h-1.5" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats?.xp || 0} / {stats?.xpForNextLevel || 100} XP
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Hearts */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Heart className="h-4 w-4 text-red-500" />
+                <span className="text-xs text-muted-foreground font-medium">Hearts</span>
+              </div>
+              <div className="flex gap-0.5 mt-1 flex-wrap">
+                {Array.from({ length: stats?.maxHearts || 5 }).map((_, i) => (
+                  <span key={i} className="text-xl leading-none">
+                    {i < (stats?.hearts || 0) ? '❤️' : '🤍'}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lessons */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <BookOpen className="h-4 w-4 text-primary" />
+                <span className="text-xs text-muted-foreground font-medium">Lessons</span>
+              </div>
+              <div className="text-2xl font-bold">{stats?.completedLessonsCount || 0}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">completed</p>
+            </CardContent>
+          </Card>
+
+          {/* Badges */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span className="text-xs text-muted-foreground font-medium">Badges</span>
+              </div>
+              <div className="text-2xl font-bold">{stats?.achievementsCount || 0}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">earned</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Today's Lesson */}
+        {todaysLesson ? (
+          <div
+            onClick={() => router.push(`${ROUTES.LESSONS}/${todaysLesson.lesson._id}`)}
+            className="rounded-2xl p-5 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 cursor-pointer hover:shadow-xl transition-all active:scale-[0.99] border border-amber-400/30"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="h-4 w-4" />
+                  <span className="text-xs font-semibold opacity-90">Today&apos;s Lesson</span>
+                </div>
+                <div className="text-xl font-bold truncate">
+                  {todaysLesson.lesson.title ?? 'Next Lesson'}
+                </div>
+                <div className="text-xs opacity-80 mt-0.5">
+                  {todaysLesson.module.moduleName} · {todaysLesson.lesson.estimatedTime ?? 5} min
+                </div>
+              </div>
+              <div className="ml-3 flex items-center gap-1 text-sm font-semibold shrink-0">
+                Start <ChevronRight className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        ) : modules.length > 0 ? (
+          <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-center">
+            <p className="text-emerald-700 dark:text-emerald-300 font-medium text-sm">
+              ✅ All caught up for today — great job!
+            </p>
+          </div>
+        ) : null}
+
+        {/* Daily Goal */}
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base">Daily Goal</CardTitle>
+              </div>
+              <Badge variant={stats?.dailyGoalMet ? 'success' : 'secondary'}>
+                {stats?.dailyGoalMet ? 'Complete!' : 'In progress'}
+              </Badge>
+            </div>
+            <Progress value={dailyPercent} />
+            <p className="text-xs text-muted-foreground mt-2">
+              {stats?.dailyXp || 0} / {stats?.dailyGoal || 20} XP today
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Continue Learning */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Continue Learning</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(ROUTES.MODULES)}
+                className="text-primary h-7 px-2"
+              >
+                See all <ChevronRight className="h-3 w-3 ml-0.5" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-2">
+            {modules.slice(0, 4).map((module) => (
+              <div
+                key={module._id}
+                onClick={() => router.push(`${ROUTES.MODULES}/${module._id}`)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                    {module.moduleName}
+                  </p>
+                  {module.progress && (
+                    <>
+                      <Progress value={module.progress.percentage} className="h-1 mt-1.5" />
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {module.progress.completedLessons}/{module.progress.totalLessons} lessons
+                      </p>
+                    </>
+                  )}
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </div>
+            ))}
+            {modules.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No modules available yet.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }

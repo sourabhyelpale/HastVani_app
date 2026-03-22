@@ -8,7 +8,7 @@ import { config } from './config';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: config.apiUrl,
+  baseURL: config.API_CONFIG.BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,11 +17,29 @@ const api = axios.create({
 
 // Create ML API instance
 export const mlApi = axios.create({
-  baseURL: config.mlApiUrl,
+  baseURL: config.API_CONFIG.ML_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: config.API_CONFIG.TIMEOUT,
 });
+
+// ML API retry interceptor
+mlApi.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const axiosConfig = error.config as InternalAxiosRequestConfig & { __retryCount?: number };
+    if (!axiosConfig || (axiosConfig.__retryCount ?? 0) >= config.API_CONFIG.RETRY_ATTEMPTS) {
+      return Promise.reject(error);
+    }
+    axiosConfig.__retryCount = (axiosConfig.__retryCount || 0) + 1;
+    await new Promise((r) => setTimeout(r, config.API_CONFIG.RETRY_DELAY));
+    return mlApi(axiosConfig);
+  }
+);
+
+// ML service root URL (for health check which is at root, not under /api/v1/ml)
+const mlRootUrl = config.API_CONFIG.ML_BASE_URL.replace(/\/api\/v1\/ml$/, '');
 
 // Token management
 let isRefreshing = false;
@@ -39,24 +57,24 @@ const onTokenRefreshed = (token: string) => {
 // Get stored tokens
 const getAccessToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(config.accessTokenKey);
+  return localStorage.getItem(config.AUTH_CONFIG.ACCESS_TOKEN_KEY);
 };
 
 const getRefreshToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(config.refreshTokenKey);
+  return localStorage.getItem(config.AUTH_CONFIG.REFRESH_TOKEN_KEY);
 };
 
 // Store tokens
 export const setTokens = (accessToken: string, refreshToken: string) => {
-  localStorage.setItem(config.accessTokenKey, accessToken);
-  localStorage.setItem(config.refreshTokenKey, refreshToken);
+  localStorage.setItem(config.AUTH_CONFIG.ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(config.AUTH_CONFIG.REFRESH_TOKEN_KEY, refreshToken);
 };
 
 // Clear tokens
 export const clearTokens = () => {
-  localStorage.removeItem(config.accessTokenKey);
-  localStorage.removeItem(config.refreshTokenKey);
+  localStorage.removeItem(config.AUTH_CONFIG.ACCESS_TOKEN_KEY);
+  localStorage.removeItem(config.AUTH_CONFIG.REFRESH_TOKEN_KEY);
 };
 
 // Request interceptor - add auth token
@@ -64,7 +82,7 @@ api.interceptors.request.use(
   (axiosConfig: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
     if (token && axiosConfig.headers) {
-      axiosConfig.headers.Authorization = `${config.tokenPrefix} ${token}`;
+      axiosConfig.headers.Authorization = `${config.AUTH_CONFIG.TOKEN_PREFIX} ${token}`;
     }
     return axiosConfig;
   },
@@ -86,7 +104,7 @@ api.interceptors.response.use(
         return new Promise((resolve) => {
           subscribeTokenRefresh((token: string) => {
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `${config.tokenPrefix} ${token}`;
+              originalRequest.headers.Authorization = `${config.AUTH_CONFIG.TOKEN_PREFIX} ${token}`;
             }
             resolve(api(originalRequest));
           });
@@ -105,7 +123,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post(`${config.apiUrl}/auth/refresh`, {
+        const response = await axios.post(`${config.API_CONFIG.BASE_URL}/auth/refresh`, {
           refreshToken,
         });
 
@@ -116,7 +134,7 @@ api.interceptors.response.use(
         onTokenRefreshed(newAccessToken);
 
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `${config.tokenPrefix} ${newAccessToken}`;
+          originalRequest.headers.Authorization = `${config.AUTH_CONFIG.TOKEN_PREFIX} ${newAccessToken}`;
         }
 
         return api(originalRequest);
@@ -253,13 +271,14 @@ export const classApi = {
   getById: (id: string) => api.get(`/classes/${id}`),
 
   create: (data: {
-    name: string;
-    description: string;
+    className: string;
+    description?: string;
+    settings?: { allowLateSubmissions?: boolean; autoGrading?: boolean; showLeaderboard?: boolean; maxStudents?: number };
     modules?: string[];
   }) => api.post('/classes', data),
 
   update: (id: string, data: Partial<{
-    name: string;
+    className: string;
     description: string;
     modules: string[];
     settings: { allowSelfEnroll: boolean; maxStudents: number };
@@ -276,18 +295,24 @@ export const classApi = {
 };
 
 export const assignmentApi = {
-  getByClass: (classId: string) => api.get(`/assignments?class=${classId}`),
+  getByClass: (classId: string) => api.get(`/assignments`, { params: { classId } }),
 
   getById: (id: string) => api.get(`/assignments/${id}`),
 
   create: (data: {
-    class: string;
-    title: string;
-    description: string;
-    type: string;
-    content: { lessons?: string[]; questions?: Array<{ type: string; question: string }>; gestures?: string[] };
+    assignName: string;
+    classId: string;
+    description?: string;
+    instructions?: string;
+    marks: number;
+    lessons: string[];
+    startDate: string;
     dueDate: string;
-    xpReward: number;
+    lateSubmissionDeadline?: string;
+    settings?: { shuffleQuestions?: boolean; showCorrectAnswers?: boolean; allowRetakes?: boolean; maxAttempts?: number; timeLimit?: number; passingScore?: number };
+    xpReward?: number;
+    gemsReward?: number;
+    isPublished?: boolean;
   }) => api.post('/assignments', data),
 
   update: (id: string, data: Partial<{
@@ -374,6 +399,7 @@ export const notificationApi = {
 
 // ML API methods
 export const gestureApi = {
+  // Static gesture recognition (letters, numbers)
   recognize: (imageData: string) =>
     mlApi.post('/recognize', { image: imageData }),
 
@@ -392,6 +418,125 @@ export const gestureApi = {
 
   extractLandmarks: (imageData: string) =>
     mlApi.post('/extract-landmarks', { image: imageData }),
+
+  // Word recognition (motion-based)
+  recognizeWord: (imageData: string) =>
+    mlApi.post('/recognize-word', { image: imageData }),
+
+  clearWordBuffer: () =>
+    mlApi.post('/clear-word-buffer'),
+
+  getSupportedWords: () => mlApi.get('/supported-words'),
+
+  // Health check (endpoint is at root level, not under /api/v1/ml)
+  getHealth: () => axios.get(`${mlRootUrl}/health`),
+};
+
+// ML Training API
+export const trainingApi = {
+  // Static gesture model training (letters, numbers)
+  startStaticTraining: (params?: { n_estimators?: number; test_size?: number }) =>
+    mlApi.post('/training/start', params || {}),
+
+  // Word model training (motion-based)
+  startWordTraining: (params?: { epochs?: number; batch_size?: number; validation_split?: number; sequence_length?: number }) =>
+    mlApi.post('/training/start-word', params || {}),
+
+  // Get training job status
+  getTrainingStatus: (jobId: string) =>
+    mlApi.get(`/training/status/${jobId}`),
+
+  // List available models
+  listModels: () => mlApi.get('/training/models'),
+
+  // Get dataset info
+  getDatasetInfo: () => mlApi.get('/training/dataset-info'),
+
+  // Reload model
+  reloadModel: (modelType: 'static' | 'word' = 'static', modelName?: string) =>
+    mlApi.post('/training/reload-model', null, { params: { model_type: modelType, model_name: modelName } }),
+};
+
+// ─── Analytics API ────────────────────────────────────────────────────────────
+export const analyticsApi = {
+  getStudentAnalytics: (userId: string = 'me', days = 30) =>
+    api.get(`/analytics/student/${userId}`, { params: { days } }),
+
+  getClassAnalytics: (classId: string, days = 30) =>
+    api.get(`/analytics/class/${classId}`, { params: { days } }),
+
+  getPlatformAnalytics: (days = 30) =>
+    api.get('/analytics/platform', { params: { days } }),
+
+  getLeaderboard: (days = 7, classId?: string) =>
+    api.get('/analytics/leaderboard', { params: { days, classId } }),
+};
+
+// ─── Reports API ──────────────────────────────────────────────────────────────
+export const reportsApi = {
+  generate: (body: {
+    type: 'user_progress' | 'class_performance' | 'module_analytics';
+    startDate: string;
+    endDate: string;
+    userId?: string;
+    classId?: string;
+    moduleId?: string;
+  }) => api.post('/reports/generate', body),
+
+  list: (params?: { type?: string; page?: number; limit?: number }) =>
+    api.get('/reports', { params }),
+
+  get: (id: string) => api.get(`/reports/${id}`),
+
+  exportUrl: (id: string, format: 'csv' | 'json') =>
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/v1/reports/${id}/export?format=${format}`,
+
+  delete: (id: string) => api.delete(`/reports/${id}`),
+};
+
+// ─── Upload API ───────────────────────────────────────────────────────────────
+export const uploadApi = {
+  /** Upload user avatar. Accepts a File or Blob. */
+  uploadAvatar: (file: File | Blob) => {
+    const form = new FormData();
+    form.append('avatar', file);
+    return api.post('/upload/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /** Upload an image. Optional folder: images | signs | lessons | modules | assignments */
+  uploadImage: (file: File | Blob, folder?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/upload/image', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: folder ? { folder } : undefined,
+    });
+  },
+
+  /** Upload a video. Optional folder: videos | signs | lessons */
+  uploadVideo: (
+    file: File | Blob,
+    folder?: string,
+    onProgress?: (percent: number) => void,
+  ) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/upload/video', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: folder ? { folder } : undefined,
+      onUploadProgress: onProgress
+        ? (e) => {
+            if (e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+          }
+        : undefined,
+    });
+  },
+
+  /** Delete a previously uploaded file by its publicId. */
+  deleteFile: (publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image') =>
+    api.delete('/upload', { data: { publicId, resourceType } }),
 };
 
 export default api;

@@ -37,9 +37,13 @@ export default function LessonPlayerPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
   const [gestureResult, setGestureResult] = useState<{ gesture: string; confidence: number } | null>(null);
+  const [autoRecognizing, setAutoRecognizing] = useState(false);
+  const [gestureConfirmed, setGestureConfirmed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recognitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const consecutiveMatchRef = useRef(0);
 
   useEffect(() => {
     const fetchLesson = async () => {
@@ -58,7 +62,10 @@ export default function LessonPlayerPage() {
     fetchLesson();
 
     return () => {
-      // Cleanup camera on unmount
+      // Cleanup camera and interval on unmount
+      if (recognitionIntervalRef.current) {
+        clearInterval(recognitionIntervalRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -72,8 +79,11 @@ export default function LessonPlayerPage() {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
         streamRef.current = stream;
         setCameraActive(true);
+        setGestureConfirmed(false);
+        consecutiveMatchRef.current = 0;
       }
     } catch (error) {
       console.error('Failed to start camera:', error);
@@ -81,27 +91,38 @@ export default function LessonPlayerPage() {
     }
   };
 
-  const stopCamera = () => {
+  const stopRecognitionLoop = useCallback(() => {
+    if (recognitionIntervalRef.current) {
+      clearInterval(recognitionIntervalRef.current);
+      recognitionIntervalRef.current = null;
+    }
+    setAutoRecognizing(false);
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    stopRecognitionLoop();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     setCameraActive(false);
     setGestureResult(null);
-  };
+    setGestureConfirmed(false);
+    consecutiveMatchRef.current = 0;
+  }, [stopRecognitionLoop]);
 
-  const captureAndRecognize = useCallback(async (expectedGesture?: string) => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const captureAndRecognize = useCallback(async (expectedGesture?: string): Promise<boolean | null> => {
+    if (!videoRef.current || !canvasRef.current) return null;
+    if (videoRef.current.readyState < 2) return null;
 
-    setRecognizing(true);
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
 
-    if (!ctx) return;
+    if (!ctx) return null;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     ctx.drawImage(video, 0, 0);
 
     const imageData = canvas.toDataURL('image/jpeg', 0.8);
@@ -122,16 +143,53 @@ export default function LessonPlayerPage() {
           gesture: result.gesture || 'Unknown',
           confidence: result.confidence || 0
         });
-        return result;
+        return result.success && result.confidence >= 0.7;
       }
     } catch (error) {
       console.error('Gesture recognition failed:', error);
-      setGestureResult({ gesture: 'Error', confidence: 0 });
       return null;
-    } finally {
-      setRecognizing(false);
     }
   }, []);
+
+  // Start automatic recognition loop when camera is active on a gesture question
+  const startRecognitionLoop = useCallback((expectedGesture: string) => {
+    stopRecognitionLoop();
+    setAutoRecognizing(true);
+    setGestureConfirmed(false);
+    consecutiveMatchRef.current = 0;
+
+    const INTERVAL_MS = 800;
+    const REQUIRED_CONSECUTIVE = 2; // need 2 consecutive matches to confirm
+
+    let isProcessing = false;
+
+    recognitionIntervalRef.current = setInterval(async () => {
+      if (isProcessing) return;
+      isProcessing = true;
+      setRecognizing(true);
+
+      try {
+        const valid = await captureAndRecognize(expectedGesture);
+
+        if (valid) {
+          consecutiveMatchRef.current += 1;
+          if (consecutiveMatchRef.current >= REQUIRED_CONSECUTIVE) {
+            // Gesture confirmed! Stop loop and auto-submit
+            stopRecognitionLoop();
+            setGestureConfirmed(true);
+            setRecognizing(false);
+          }
+        } else {
+          consecutiveMatchRef.current = 0;
+        }
+      } catch {
+        // ignore errors in loop, keep trying
+      } finally {
+        isProcessing = false;
+        setRecognizing(false);
+      }
+    }, INTERVAL_MS);
+  }, [captureAndRecognize, stopRecognitionLoop]);
 
   const handleNextContent = () => {
     if (!lesson) return;
@@ -186,34 +244,59 @@ export default function LessonPlayerPage() {
     }
   };
 
-  const handleGestureSubmit = async () => {
-    if (!lesson) return;
+  // When gesture is confirmed by the auto-recognition loop, submit the answer
+  useEffect(() => {
+    if (!gestureConfirmed || !lesson) return;
 
     const question = lesson.questions[currentQuestionIndex];
-    const expectedGesture = question.gestureName || question.correctAnswer as string;
 
-    const valid = await captureAndRecognize(expectedGesture);
-
-    setIsCorrect(!!valid);
+    setIsCorrect(true);
     setShowFeedback(true);
-
-    if (valid) {
-      setScore(prev => prev + question.points);
-    }
+    setScore(prev => prev + question.points);
 
     setAnswers(prev => [...prev, {
       questionIndex: currentQuestionIndex,
-      answer: gestureResult?.gesture || 'Unknown',
-      isCorrect: !!valid
+      answer: gestureResult?.gesture || question.gestureName || question.correctAnswer as string,
+      isCorrect: true
     }]);
-  };
+
+    // Submit to backend
+    lessonApi.submitAnswer(lessonId, {
+      questionIndex: currentQuestionIndex,
+      answer: gestureResult?.gesture || question.correctAnswer as string
+    }).catch(err => console.error('Failed to submit answer:', err));
+
+    // Auto-advance after 1.5 seconds
+    const timer = setTimeout(() => {
+      handleNextQuestion();
+      setGestureConfirmed(false);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [gestureConfirmed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When camera becomes active on a gesture question, start the recognition loop
+  useEffect(() => {
+    if (!cameraActive || !lesson || stage !== 'questions') return;
+
+    const question = lesson.questions[currentQuestionIndex];
+    if (question?.type !== 'gesture_recognition') return;
+
+    const expectedGesture = question.gestureName || question.correctAnswer as string;
+    startRecognitionLoop(expectedGesture);
+
+    return () => stopRecognitionLoop();
+  }, [cameraActive, currentQuestionIndex, stage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNextQuestion = () => {
     if (!lesson) return;
 
+    stopRecognitionLoop();
     setShowFeedback(false);
     setSelectedAnswer(null);
     setGestureResult(null);
+    setGestureConfirmed(false);
+    consecutiveMatchRef.current = 0;
 
     if (currentQuestionIndex < lesson.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -329,7 +412,7 @@ export default function LessonPlayerPage() {
               {question.question}
             </h3>
             <p className="text-gray-500">
-              Show the gesture: <span className="font-semibold text-blue-600">{question.gestureName || question.correctAnswer}</span>
+              Show the gesture: <span className="font-semibold text-blue-600 text-2xl">{question.gestureName || question.correctAnswer}</span>
             </p>
           </div>
 
@@ -342,23 +425,48 @@ export default function LessonPlayerPage() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover transform scale-x-[-1]"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
                 />
-                <canvas ref={canvasRef} className="hidden" />
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-                {/* Gesture Result Overlay */}
+                {/* Live Recognition Overlay */}
                 {gestureResult && (
-                  <div className={`absolute top-4 right-4 px-4 py-2 rounded-lg ${
-                    isCorrect ? 'bg-green-500' : 'bg-yellow-500'
-                  } text-white font-medium`}>
-                    {gestureResult.gesture} ({Math.round(gestureResult.confidence * 100)}%)
+                  <div className={`absolute top-4 left-4 right-4 px-4 py-3 rounded-xl backdrop-blur-sm ${
+                    gestureConfirmed ? 'bg-green-500/90' : 'bg-black/60'
+                  } text-white font-medium text-center transition-all`}>
+                    <div className="flex items-center justify-center gap-2">
+                      {recognizing && !gestureConfirmed && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      )}
+                      {gestureConfirmed && <span className="text-xl">&#10003;</span>}
+                      <span className="text-lg">
+                        {gestureResult.gesture} - {Math.round(gestureResult.confidence * 100)}%
+                      </span>
+                    </div>
+                    {gestureConfirmed && (
+                      <p className="text-sm mt-1 text-green-100">Correct! Moving to next...</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Scanning indicator */}
+                {autoRecognizing && !gestureConfirmed && (
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center justify-center gap-2 text-white text-sm bg-black/50 rounded-lg px-3 py-2 backdrop-blur-sm">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                      <span>Scanning your gesture...</span>
+                    </div>
                   </div>
                 )}
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-white">
                 <span className="text-6xl mb-4">📷</span>
-                <p className="text-gray-400">Camera is off</p>
+                <p className="text-gray-400">Press the button below to start</p>
               </div>
             )}
           </div>
@@ -375,35 +483,14 @@ export default function LessonPlayerPage() {
                 </svg>
                 Start Camera
               </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleGestureSubmit}
-                  disabled={recognizing || showFeedback}
-                  className="px-6 py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center"
-                >
-                  {recognizing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                      Recognizing...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Check Gesture
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={stopCamera}
-                  className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors"
-                >
-                  Stop Camera
-                </button>
-              </>
-            )}
+            ) : !gestureConfirmed ? (
+              <button
+                onClick={stopCamera}
+                className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors"
+              >
+                Stop Camera
+              </button>
+            ) : null}
           </div>
         </div>
       );

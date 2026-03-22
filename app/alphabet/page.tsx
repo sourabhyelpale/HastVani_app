@@ -5,7 +5,7 @@ import { alphabetData } from "../../constants/data";
 
 export default function AlphabetPage() {
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 pb-24">
       <CustomHeader title="ISL Alphabet" />
 
       <div className="grid grid-cols-3 gap-4 mt-6">
