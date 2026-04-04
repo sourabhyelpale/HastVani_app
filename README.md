@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ISL Learning Platform - Frontend
 
-## Getting Started
+Next.js frontend for the ISL (Indian Sign Language) Learning Platform. Supports web and Android (via Capacitor).
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Framework**: Next.js 14 (App Router) + TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI, Lucide React
+- **State Management**: Zustand
+- **HTTP Client**: Axios
+- **Charts**: Recharts
+- **Real-time**: Socket.io-client
+- **Mobile**: Capacitor (Android)
+
+## Structure
+
+```
+app/                  # Next.js App Router pages
+├── achievements/
+├── admin/
+├── alphabet/
+├── alphabetid/
+├── analytics/
+├── classes/
+├── dashboard/
+├── forgot-password/
+├── leaderboard/
+├── lessons/[id]/
+├── login/
+├── modules/[id]/
+├── practice/
+├── profile/
+├── register/
+├── teacher/
+└── layout.tsx
+
+components/
+├── AlphabetCard.tsx
+├── BottomTabNavigator.tsx   # Hidden on /lessons/* and /practice
+├── CustomHeader.tsx
+├── LessonCard.tsx
+├── auth/                    # ProtectedRoute, RoleGuard, LoginForm, RegisterForm
+└── ui/                      # Radix-based UI primitives
+
+lib/
+├── api.ts            # Axios client with all API methods
+├── config.ts         # Centralized config (routes, roles, theme, gamification)
+├── theme.ts
+└── utils.ts
+
+store/
+├── authStore.ts
+├── lessonStore.ts
+├── notificationStore.ts
+├── uiStore.ts
+└── userStore.ts
+
+types/                # TypeScript types
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Development (web)
+npm run dev           # Runs on :3000
 
-## Learn More
+# Build for production
+npm run build
+npm start
 
-To learn more about Next.js, take a look at the following resources:
+# Android (via Capacitor)
+npx cap sync android
+npx cap open android
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+NEXT_PUBLIC_ML_API_URL=http://localhost:8000/api/v1/ml
+NEXT_PUBLIC_WS_URL=ws://localhost:4000
+NEXT_PUBLIC_ML_WS_URL=ws://localhost:8000/api/v1/ml
+```
 
-## Deploy on Vercel
+See `app/.env` for the full list of configuration variables.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Key Pages
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Role | Description |
+|-------|------|-------------|
+| `/dashboard` | All | Main dashboard with stats |
+| `/modules/[id]` | Student | Module detail with lesson list (all unlocked) |
+| `/lessons/[id]` | Student | Lesson player (video, quiz, gesture) |
+| `/practice` | Student | Gesture practice with camera |
+| `/alphabet` | Student | ISL alphabet reference |
+| `/leaderboard` | All | Global + class leaderboard |
+| `/achievements` | All | Achievement gallery |
+| `/classes` | Student/Teacher | Class management |
+| `/teacher` | Teacher | Teacher dashboard |
+| `/admin` | Admin | Admin panel |
+
+## Notes
+
+- `BottomTabNavigator` is hidden on `/lessons/*` and `/practice` routes since these have their own navigation.
+- All lessons in a module are unlocked (no sequential locking).
+- Video blocks use `playsInline` and show a fallback message when `mediaUrl` is missing.
+- Config is centralized in `lib/config.ts` — update routes, roles, theme, and gamification constants there.
