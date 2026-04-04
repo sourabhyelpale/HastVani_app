@@ -179,9 +179,7 @@ export default function ModuleDetailPage() {
           <div className="space-y-3">
             {lessons.map((lesson, index) => {
               const isCompleted = completedLessonIds.has(lesson._id);
-              // Unlock if: first lesson, or previous lesson is completed, or this lesson is completed
-              const previousLessonCompleted = index === 0 || completedLessonIds.has(lessons[index - 1]._id);
-              const isLocked = !isCompleted && !previousLessonCompleted;
+              const isLocked = false; // all lessons unlocked
 
               return (
                 <button

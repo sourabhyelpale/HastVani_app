@@ -343,16 +343,23 @@ export default function LessonPlayerPage() {
           </div>
         );
       case 'video':
+        console.log('[VIDEO BLOCK]', JSON.stringify(block));
         return (
-          <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-            <video
-              src={block.mediaUrl}
-              controls
-              className="w-full h-full object-contain"
-              poster={block.mediaUrl?.replace('.mp4', '.jpg')}
-            >
-              Your browser does not support video playback.
-            </video>
+          <div className="w-full rounded-xl overflow-hidden bg-black">
+            {block.mediaUrl ? (
+              <video
+                key={block.mediaUrl}
+                src={block.mediaUrl}
+                controls
+                playsInline
+                preload="metadata"
+                style={{ width: '100%', display: 'block', maxHeight: '70vh' }}
+              />
+            ) : (
+              <div className="flex items-center justify-center text-gray-400 py-16">
+                Video not available — mediaUrl is missing
+              </div>
+            )}
           </div>
         );
       case 'image':
@@ -762,7 +769,7 @@ export default function LessonPlayerPage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
           <div className="max-w-4xl mx-auto flex justify-between">
             {stage === 'content' && (
               <>

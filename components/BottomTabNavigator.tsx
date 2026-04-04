@@ -44,6 +44,11 @@ export default function BottomTabNavigator() {
 
   const tabs = isAdmin ? adminTabs : isTeacher ? teacherTabs : studentTabs;
 
+  // Hide on full-screen pages that have their own navigation
+  if (pathname.startsWith('/lessons/') || pathname.startsWith('/practice')) {
+    return null;
+  }
+
   const isActive = (href: string) => {
     if (href === ROUTES.DASHBOARD) return pathname === '/' || pathname === ROUTES.DASHBOARD;
     if (href === ROUTES.TEACHER) return pathname === ROUTES.TEACHER;
