@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Use standalone for Docker, export for Capacitor mobile
-  output: process.env.BUILD_MODE === 'capacitor' ? 'export' : 'standalone',
+  // standalone for Docker, export for Capacitor, default (undefined) for Vercel
+  output: process.env.BUILD_MODE === 'capacitor'
+    ? 'export'
+    : process.env.BUILD_MODE === 'docker'
+      ? 'standalone'
+      : undefined,
   images: {
     unoptimized: true,
     remotePatterns: [
