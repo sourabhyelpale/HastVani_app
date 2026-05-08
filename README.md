@@ -79,6 +79,12 @@ npx cap open android
 
 ## Environment Variables
 
+For local development, create `app/.env.local` (it overrides `app/.env`):
+
+```bash
+cp .env.local.example .env.local
+```
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 NEXT_PUBLIC_ML_API_URL=http://localhost:8000/api/v1/ml

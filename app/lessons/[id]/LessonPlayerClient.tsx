@@ -246,7 +246,7 @@ export default function LessonPlayerPage() {
       for (const l of moduleLessons) {
         allTitles.push(l.title);
         const videoBlock = l.content?.find(
-          b => b.type === 'video' && b.mediaUrl?.startsWith('https://res.cloudinary.com/')
+          b => b.type === 'video' && !!b.mediaUrl
         );
         if (videoBlock?.mediaUrl) {
           candidates.push({ title: l.title, videoUrl: videoBlock.mediaUrl });
@@ -364,6 +364,11 @@ export default function LessonPlayerPage() {
     if (!lesson || selectedAnswer === null) return;
 
     const question = lesson.questions[currentQuestionIndex];
+    const questionId = (question as any)?._id as string | undefined;
+    if (!questionId) {
+      console.warn('Missing question _id; cannot submit answer');
+      return;
+    }
     const correct = selectedAnswer === question.correctAnswer;
 
     setIsCorrect(correct);
@@ -382,7 +387,7 @@ export default function LessonPlayerPage() {
     // Submit answer to backend
     try {
       await lessonApi.submitAnswer(lessonId, {
-        questionIndex: currentQuestionIndex,
+        questionId,
         answer: selectedAnswer
       });
     } catch (error) {
@@ -395,6 +400,11 @@ export default function LessonPlayerPage() {
     if (!gestureConfirmed || !lesson) return;
 
     const question = lesson.questions[currentQuestionIndex];
+    const questionId = (question as any)?._id as string | undefined;
+    if (!questionId) {
+      console.warn('Missing question _id; cannot submit gesture answer');
+      return;
+    }
 
     setIsCorrect(true);
     setShowFeedback(true);
@@ -408,8 +418,8 @@ export default function LessonPlayerPage() {
 
     // Submit to backend
     lessonApi.submitAnswer(lessonId, {
-      questionIndex: currentQuestionIndex,
-      answer: gestureResult?.gesture || question.correctAnswer as string
+      questionId,
+      answer: gestureResult?.gesture || (question.correctAnswer as any)
     }).catch(err => console.error('Failed to submit answer:', err));
 
     // Auto-advance after 1.5 seconds
@@ -495,10 +505,10 @@ export default function LessonPlayerPage() {
           </div>
         );
       case 'video': {
-        const isCloudinaryUrl = block.mediaUrl?.startsWith('https://res.cloudinary.com/');
+        const hasVideoUrl = !!block.mediaUrl;
         return (
           <div className="w-full rounded-xl overflow-hidden bg-black">
-            {isCloudinaryUrl ? (
+            {hasVideoUrl ? (
               <video
                 key={block.mediaUrl}
                 src={block.mediaUrl}
@@ -959,7 +969,7 @@ export default function LessonPlayerPage() {
                 <div className="p-3 sm:p-6">
                   {/* Video */}
                   <div className="w-full rounded-lg sm:rounded-xl overflow-hidden bg-black mb-4">
-                    {videoQuizQuestions[vqIndex].videoUrl?.startsWith('https://res.cloudinary.com/') ? (
+                    {videoQuizQuestions[vqIndex].videoUrl ? (
                       <video
                         key={videoQuizQuestions[vqIndex].videoUrl}
                         src={videoQuizQuestions[vqIndex].videoUrl}
@@ -979,7 +989,7 @@ export default function LessonPlayerPage() {
                   </div>
 
                   <p className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-3">
-                    {videoQuizQuestions[vqIndex].videoUrl?.startsWith('https://res.cloudinary.com/')
+                    {videoQuizQuestions[vqIndex].videoUrl
                       ? videoQuizQuestions[vqIndex].question
                       : `Which sign does the word "${videoQuizQuestions[vqIndex].correctAnswer}" represent?`}
                   </p>

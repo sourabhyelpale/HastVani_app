@@ -21,10 +21,9 @@ export default function JoinClassPage() {
     setError(null);
 
     try {
-      // Backend finds class by code; id param is unused
-      const response = await classApi.join('join', classCode.trim().toUpperCase());
-      const { classId } = response.data.data;
-      router.push(`${ROUTES.CLASSES}/${classId}`);
+      const response = await classApi.join(classCode.trim().toUpperCase());
+      const joinedClass = response.data.data as { _id: string };
+      router.push(`${ROUTES.CLASSES}/${joinedClass._id}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg || 'Failed to join class. Check the code and try again.');

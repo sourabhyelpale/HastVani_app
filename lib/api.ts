@@ -197,38 +197,21 @@ export const userApi = {
 
   getAchievements: (id: string) => api.get(`/users/${id}/achievements`),
 };
-
 export const moduleApi = {
   getAll: (params?: { category?: string; difficulty?: string; published?: boolean }) =>
     api.get('/modules', { params }),
 
   getById: (id: string) => api.get(`/modules/${id}`),
 
-  create: (data: {
-    title: string;
-    description: string;
-    category: string;
-    difficulty: string;
-    order: number;
-    estimatedTime: number;
-    xpReward: number;
-    gemsReward: number;
-  }) => api.post('/modules', data),
+  // ADD THIS - get multiple modules by IDs
+  getByIds: (ids: string[]) =>
+    api.get('/modules/bulk', { params: { ids: ids.join(',') } }),
 
-  update: (id: string, data: Partial<{
-    title: string;
-    description: string;
-    category: string;
-    difficulty: string;
-    order: number;
-    isPublished: boolean;
-  }>) => api.patch(`/modules/${id}`, data),
-
+  create: (data: any) => api.post('/modules', data),
+  update: (id: string, data: any) => api.patch(`/modules/${id}`, data),
+  togglePublish: (id: string) => api.post(`/modules/${id}/publish`, {}),
   delete: (id: string) => api.delete(`/modules/${id}`),
-
-  togglePublish: (id: string) => api.post(`/modules/${id}/toggle-publish`),
 };
-
 export const lessonApi = {
   getByModule: (moduleId: string) => api.get(`/lessons?module=${moduleId}`),
 
@@ -258,41 +241,44 @@ export const lessonApi = {
 
   start: (id: string) => api.post(`/lessons/${id}/start`),
 
-  submitAnswer: (id: string, data: { questionIndex: number; answer: string | number }) =>
+  // Backend expects a stable `questionId` (from lesson.questions subdocument _id).
+  submitAnswer: (
+    id: string,
+    data: { questionId: string; answer: string | number | string[] }
+  ) =>
     api.post(`/lessons/${id}/submit-answer`, data),
 
   complete: (id: string, data: { timeSpent: number; answers?: Array<{ questionIndex: number; answer: string | number }> }) =>
     api.post(`/lessons/${id}/complete`, data),
 };
 
+
 export const classApi = {
   getAll: () => api.get('/classes'),
 
   getById: (id: string) => api.get(`/classes/${id}`),
 
-  create: (data: {
-    className: string;
-    description?: string;
-    settings?: { allowLateSubmissions?: boolean; autoGrading?: boolean; showLeaderboard?: boolean; maxStudents?: number };
-    modules?: string[];
-  }) => api.post('/classes', data),
+  // ADD THIS - get enrolled classes for student
+  getEnrolled: () => api.get('/classes/enrolled'),
 
-  update: (id: string, data: Partial<{
-    className: string;
-    description: string;
-    modules: string[];
-    settings: { allowSelfEnroll: boolean; maxStudents: number };
-  }>) => api.patch(`/classes/${id}`, data),
+  create: (data: any) => api.post('/classes', data),
+
+  // IMPORTANT: Fix update method
+  update: (id: string, data: any) => api.patch(`/classes/${id}`, data),
 
   delete: (id: string) => api.delete(`/classes/${id}`),
 
-  join: (id: string, classCode: string) =>
-    api.post(`/classes/${id}/join`, { classCode }),
+  join: (classCode: string) =>
+    api.post('/classes/join', { classCode }),
 
   getStudents: (id: string) => api.get(`/classes/${id}/students`),
 
+  addStudent: (id: string, body: { email?: string; userId?: string }) =>
+    api.post(`/classes/${id}/students`, body),
+
   getLeaderboard: (id: string) => api.get(`/classes/${id}/leaderboard`),
 };
+
 
 export const assignmentApi = {
   getByClass: (classId: string) => api.get(`/assignments`, { params: { classId } }),
@@ -316,17 +302,34 @@ export const assignmentApi = {
   }) => api.post('/assignments', data),
 
   update: (id: string, data: Partial<{
-    title: string;
+    assignName: string;
     description: string;
+    instructions: string;
+    marks: number;
+    classId: string;
+    lessons: string[];
+    startDate: string;
     dueDate: string;
+    lateSubmissionDeadline: string;
+    xpReward: number;
+    gemsReward: number;
     isPublished: boolean;
+    settings: {
+      shuffleQuestions: boolean;
+      showCorrectAnswers: boolean;
+      allowRetakes: boolean;
+      maxAttempts: number;
+      timeLimit?: number;
+      passingScore: number;
+    };
   }>) => api.patch(`/assignments/${id}`, data),
 
   delete: (id: string) => api.delete(`/assignments/${id}`),
 
   submit: (id: string, data: {
-    answers?: Array<{ questionIndex: number; answer: string | number }>;
-    gestureResults?: Array<{ gestureName: string; recognized: boolean; confidence: number }>;
+    answers?: Array<{ questionId: string; lessonId: string; answer: string | string[] }>;
+    gestureResults?: Array<{ signId: string; recognized: boolean; confidence: number }>;
+    timeSpent?: number;
   }) => api.post(`/assignments/${id}/submit`, data),
 
   getSubmissions: (id: string) => api.get(`/assignments/${id}/submissions`),
@@ -528,8 +531,8 @@ export const uploadApi = {
       params: folder ? { folder } : undefined,
       onUploadProgress: onProgress
         ? (e) => {
-            if (e.total) onProgress(Math.round((e.loaded * 100) / e.total));
-          }
+          if (e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+        }
         : undefined,
     });
   },

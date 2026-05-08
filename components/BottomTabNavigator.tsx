@@ -23,8 +23,8 @@ const adminTabs: Tab[] = [
 const studentTabs: Tab[] = [
   { name: 'Home', icon: Home, href: ROUTES.DASHBOARD },
   { name: 'Learn', icon: BookOpen, href: ROUTES.MODULES },
+  { name: 'Classes', icon: School, href: ROUTES.CLASSES },
   { name: 'Practice', icon: Hand, href: ROUTES.PRACTICE },
-  { name: 'Stats', icon: BarChart2, href: ROUTES.ANALYTICS },
   { name: 'Profile', icon: User, href: ROUTES.PROFILE },
 ];
 

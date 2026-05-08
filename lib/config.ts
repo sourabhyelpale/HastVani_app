@@ -260,7 +260,8 @@ export const ROLES = {
 export const ROLE_ROUTES = {
   [ROLES.ADMIN]: ['/admin', '/dashboard', '/modules', '/lessons', '/classes', '/users', '/analytics'],
   [ROLES.TEACHER]: ['/dashboard', '/modules', '/lessons', '/classes', '/assignments', '/analytics'],
-  [ROLES.STUDENT]: ['/dashboard', '/modules', '/lessons', '/practice', '/leaderboard', '/profile'],
+  // Students can join/view their enrolled classes
+  [ROLES.STUDENT]: ['/dashboard', '/modules', '/lessons', '/classes', '/assignments', '/practice', '/leaderboard', '/profile'],
 } as const;
 
 export const ROLE_PERMISSIONS = {

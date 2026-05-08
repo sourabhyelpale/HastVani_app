@@ -27,7 +27,7 @@ interface AssignmentItem {
 interface Submission {
   _id: string;
   student: { _id: string; firstName: string; lastName: string; email: string };
-  score: number | null;
+  totalScore: number | null;
   status: 'submitted' | 'graded' | 'late' | 'pending';
   submittedAt: string | null;
   feedback: string;
@@ -105,7 +105,7 @@ function Gradebook() {
 
   const startGrading = (sub: Submission) => {
     setGradingId(sub._id);
-    setGradeInput({ score: sub.score?.toString() ?? '', feedback: sub.feedback ?? '' });
+    setGradeInput({ score: sub.totalScore?.toString() ?? '', feedback: sub.feedback ?? '' });
     setSaveStatus('idle');
   };
 
@@ -130,7 +130,7 @@ function Gradebook() {
       setSubmissions((prev) =>
         prev.map((s) =>
           s._id === submissionId
-            ? { ...s, score: scoreNum, status: 'graded', feedback: gradeInput.feedback }
+            ? { ...s, totalScore: scoreNum, status: 'graded', feedback: gradeInput.feedback }
             : s
         )
       );
@@ -274,9 +274,9 @@ function Gradebook() {
                               : '—'}
                           </td>
                           <td className="text-center py-3 font-semibold">
-                            {sub.score !== null && sub.score !== undefined
-                              ? <span className={sub.score / (currentAssignment?.marks || 100) >= 0.5 ? 'text-green-600 dark:text-green-400' : 'text-orange-500'}>
-                                  {sub.score}/{currentAssignment?.marks ?? '?'}
+                            {sub.totalScore !== null && sub.totalScore !== undefined
+                              ? <span className={sub.totalScore / (currentAssignment?.marks || 100) >= 0.5 ? 'text-green-600 dark:text-green-400' : 'text-orange-500'}>
+                                  {sub.totalScore}/{currentAssignment?.marks ?? '?'}
                                 </span>
                               : <span className="text-gray-400">—</span>}
                           </td>

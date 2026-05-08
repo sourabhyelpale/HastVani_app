@@ -27,6 +27,7 @@ export default function CreateAssignmentPage() {
     marks: 100,
     xpReward: 20,
     shuffleQuestions: false,
+    isPublished: true,
   });
 
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
@@ -85,7 +86,11 @@ export default function CreateAssignmentPage() {
     setFormData((prev) => ({
       ...prev,
       [name]:
-        type === 'number' ? parseInt(value) || 0 : name === 'shuffleQuestions' ? (e.target as HTMLInputElement).checked : value,
+        type === 'number'
+          ? parseInt(value) || 0
+          : type === 'checkbox'
+            ? (e.target as HTMLInputElement).checked
+            : value,
     }));
   };
 
@@ -134,6 +139,7 @@ export default function CreateAssignmentPage() {
         startDate,
         dueDate,
         xpReward: formData.xpReward,
+        isPublished: formData.isPublished,
         settings:
           formData.type === 'quiz'
             ? { shuffleQuestions: formData.shuffleQuestions, showCorrectAnswers: true }
@@ -220,6 +226,18 @@ export default function CreateAssignmentPage() {
                       Shuffle questions
                     </label>
                   )}
+
+                  {/* Publish */}
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      name="isPublished"
+                      checked={formData.isPublished}
+                      onChange={handleChange}
+                      className="rounded border-gray-300"
+                    />
+                    Publish now (visible to students after start date)
+                  </label>
 
                   {/* Description */}
                   <div>

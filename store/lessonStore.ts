@@ -223,9 +223,16 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       return { isCorrect: false };
     }
 
+    const question = currentLesson.questions[currentQuestionIndex] as any;
+    const questionId = question?._id as string | undefined;
+    if (!questionId) {
+      console.warn('Missing question _id; cannot submit answer');
+      return { isCorrect: false };
+    }
+
     try {
       const response = await lessonApi.submitAnswer(currentLesson._id, {
-        questionIndex: currentQuestionIndex,
+        questionId,
         answer,
       });
 

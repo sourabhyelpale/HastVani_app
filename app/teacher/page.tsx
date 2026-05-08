@@ -100,7 +100,7 @@ function TeacherDashboard() {
   const draftAssignments = assignments.filter((a) => !a.isPublished).length;
 
   const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code).catch(() => {});
+    navigator.clipboard.writeText(code).catch(() => { });
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(''), 2000);
   };
@@ -360,11 +360,10 @@ function QuickAction({ label, icon, onClick, primary = false }: {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-colors border ${
-        primary
+      className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-colors border ${primary
           ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700'
           : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700'
-      }`}
+        }`}
     >
       {icon} {label}
     </button>

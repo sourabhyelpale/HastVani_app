@@ -37,19 +37,34 @@ export default function ModulesPage() {
   const router = useRouter();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<ModuleCategory | 'all'>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel | 'all'>('all');
 
   useEffect(() => {
-    setLoading(true);
-    const params: Record<string, unknown> = { published: true };
-    if (selectedCategory !== 'all') params.category = selectedCategory;
-    if (selectedDifficulty !== 'all') params.difficulty = selectedDifficulty;
 
-    moduleApi.getAll(params)
-      .then((r) => setModules(r.data.data || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    const fetchModules = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const params: Record<string, unknown> = { published: true };
+        if (selectedCategory !== 'all') params.category = selectedCategory;
+        if (selectedDifficulty !== 'all') params.difficulty = selectedDifficulty;
+
+        const res = await moduleApi.getAll(params);
+        setModules(res.data.data || []);
+      }
+      catch (error) {
+        console.error(error);
+        setModules([]);
+        setError('Failed to load modules. Check backend is running and your `NEXT_PUBLIC_API_URL` points to the correct server.');
+      }
+      finally {
+        setLoading(false);
+      }
+    }
+    fetchModules();
   }, [selectedCategory, selectedDifficulty]);
 
   const difficultyVariant = (d: DifficultyLevel) =>
@@ -75,6 +90,15 @@ export default function ModulesPage() {
         </div>
 
         <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+          {error && (
+            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+              <p className="font-medium">{error}</p>
+              <p className="mt-1 text-xs opacity-90">
+                API: <span className="font-mono">{process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}</span>
+              </p>
+            </div>
+          )}
+
           {/* Category pills */}
           <div className="overflow-x-auto -mx-4 px-4 pb-1">
             <div className="flex gap-2 min-w-max">

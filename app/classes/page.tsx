@@ -54,7 +54,7 @@ export default function ClassesPage() {
                 onClick={() => router.push(`${ROUTES.CLASSES}/create`)}
                 className="flex-1 bg-primary-600 text-white py-3 px-4 rounded-xl font-medium shadow-md hover:bg-primary-700 transition-colors flex items-center justify-center"
               >
-                <span className="text-xl mr-2">+</span> Create Class
+                <span className="text-xl mr-2 text-white/90">+</span> Create Class
               </button>
             )}
             {isStudent && (
@@ -78,7 +78,7 @@ export default function ClassesPage() {
           {error && (
             <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-4 text-center">
               {error}
-              <button 
+              <button
                 onClick={fetchClasses}
                 className="block mx-auto mt-2 text-sm font-medium underline"
               >
@@ -95,8 +95,8 @@ export default function ClassesPage() {
                 No Classes Yet
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-6">
-                {isTeacher 
-                  ? "You haven't created any classes yet." 
+                {isTeacher
+                  ? "You haven't created any classes yet."
                   : "You aren't enrolled in any classes yet."}
               </p>
             </div>
@@ -111,7 +111,7 @@ export default function ClassesPage() {
                 className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all relative overflow-hidden"
               >
                 <div className="absolute top-0 left-0 w-2 h-full bg-primary-500"></div>
-                
+
                 <div className="flex justify-between items-start mb-2 pl-2">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate pr-2">
                     {cls.className ?? cls.name}
@@ -122,11 +122,11 @@ export default function ClassesPage() {
                     </span>
                   )}
                 </div>
-                
+
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 pl-2 line-clamp-2">
                   {cls.description || 'No description provided.'}
                 </p>
-                
+
                 <div className="flex justify-between items-center pl-2">
                   <div className="flex -space-x-2 overflow-hidden">
                     {/* Placeholder avatars for students (if any) */}
@@ -141,7 +141,7 @@ export default function ClassesPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <span className="text-primary-600 dark:text-primary-400 text-sm font-medium flex items-center">
                     View Class <span className="ml-1">→</span>
                   </span>

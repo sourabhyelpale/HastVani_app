@@ -21,15 +21,24 @@ export default function ClassDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('assignments');
   const [error, setError] = useState<string | null>(null);
+  const [addStudentEmail, setAddStudentEmail] = useState('');
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [addStudentError, setAddStudentError] = useState<string | null>(null);
 
   const classId = params.id as string;
-  const isTeacher = user?.role === ROLES.TEACHER;
+  const isTeacher = user?.role === ROLES.TEACHER || user?.role === ROLES.ADMIN;
 
   useEffect(() => {
     if (classId) {
       fetchClassData();
     }
   }, [classId]);
+
+  const fetchStudents = async () => {
+    if (!isTeacher) return;
+    const studentsRes = await classApi.getStudents(classId);
+    setStudents(studentsRes.data.data || []);
+  };
 
   const fetchClassData = async () => {
     try {
@@ -43,14 +52,33 @@ export default function ClassDetailsPage() {
       setAssignments(assignmentsRes.data.data || []);
 
       if (isTeacher) {
-        const studentsRes = await classApi.getStudents(classId);
-        setStudents(studentsRes.data.data || []);
+        await fetchStudents();
       }
     } catch (err) {
       console.error('Failed to fetch class data:', err);
       setError('Failed to load class details. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isTeacher) return;
+    const email = addStudentEmail.trim().toLowerCase();
+    if (!email) return;
+
+    setAddingStudent(true);
+    setAddStudentError(null);
+    try {
+      await classApi.addStudent(classId, { email });
+      setAddStudentEmail('');
+      await fetchStudents();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setAddStudentError(msg || 'Failed to add student. Please try again.');
+    } finally {
+      setAddingStudent(false);
     }
   };
 
@@ -98,21 +126,19 @@ export default function ClassDetailsPage() {
               <nav className="-mb-px flex space-x-8">
                 <button
                   onClick={() => setActiveTab('assignments')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'assignments'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'assignments'
                       ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   Assignments
                 </button>
                 <button
                   onClick={() => setActiveTab('members')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'members'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'members'
                       ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   Members
                 </button>
@@ -142,7 +168,11 @@ export default function ClassDetailsPage() {
                   assignments.map((assignment) => (
                     <div
                       key={assignment._id}
-                      className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700"
+                      onClick={() => {
+                        if (!isTeacher) router.push(`/assignments/${assignment._id}`);
+                      }}
+                      className={`bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${!isTeacher ? 'cursor-pointer hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all' : ''
+                        }`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
@@ -153,14 +183,27 @@ export default function ClassDetailsPage() {
                             Due: {new Date(assignment.dueDate).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          assignment.isPublished
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${assignment.isPublished
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                             : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        }`}>
+                          }`}>
                           {assignment.isPublished ? 'Published' : 'Draft'}
                         </span>
                       </div>
+                      {!isTeacher && (
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/assignments/${assignment._id}`);
+                            }}
+                            className="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition"
+                          >
+                            Attempt Quiz
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -170,6 +213,34 @@ export default function ClassDetailsPage() {
 
           {activeTab === 'members' && (
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+              {isTeacher && (
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <form onSubmit={handleAddStudent} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="email"
+                      value={addStudentEmail}
+                      onChange={(e) => setAddStudentEmail(e.target.value)}
+                      placeholder="Student email (e.g. student@example.com)"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingStudent || !addStudentEmail.trim()}
+                      className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition"
+                    >
+                      {addingStudent ? 'Adding...' : 'Add Student'}
+                    </button>
+                  </form>
+                  {addStudentError && (
+                    <div className="mt-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+                      {addStudentError}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    Tip: Students can also join themselves using the class code.
+                  </p>
+                </div>
+              )}
               <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                 {students.map((student) => (
                   <li key={student._id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
