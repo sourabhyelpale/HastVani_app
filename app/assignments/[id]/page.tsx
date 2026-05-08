@@ -42,7 +42,7 @@ import { Progress } from '@/components/ui/progress';
 type TabsContextType = { value?: string; setValue: (v: string) => void };
 const TabsContext = createContext<TabsContextType | undefined>(undefined);
 
-export function Tabs({
+function Tabs({
   value,
   onValueChange,
   children,
@@ -66,11 +66,11 @@ export function Tabs({
   );
 }
 
-export function TabsList({ children, className }: { children: ReactNode; className?: string }) {
+function TabsList({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={className}>{children}</div>;
 }
 
-export function TabsTrigger({
+function TabsTrigger({
   value,
   children,
   className,
@@ -92,7 +92,7 @@ export function TabsTrigger({
   );
 }
 
-export function TabsContent({
+function TabsContent({
   value,
   children,
   className,
@@ -130,7 +130,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   advanced: 'bg-red-100 text-red-800 border-red-300',
 };
 
-export default function AssignmentPage({ params }: { params: { id: string } }) {
+export default function AssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [assignment, setAssignment] = useState<AssignmentWithLesson | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,19 +149,17 @@ export default function AssignmentPage({ params }: { params: { id: string } }) {
     const fetchAssignment = async () => {
       setLoading(true);
       try {
-        const res = await assignmentApi.getById(params.id);
+        const { id } = await params; // ← Await the params Promise
+        const res = await assignmentApi.getById(id);
         const assignmentData = res.data.data;
 
         // If lessons are IDs, fetch the first lesson with questions
-        if (assignmentData.lessons && Array.isArray(assignmentData.lessons)) {
-          const firstLessonId = assignmentData.lessons[0];
-          if (typeof firstLessonId === 'string') {
-            // Lesson ID is a string, need to fetch it
-            const lessonRes = await lessonApi.getById(firstLessonId);
+        if (assignmentData.lesson) {
+          if (typeof assignmentData.lesson === 'string') {
+            const lessonRes = await lessonApi.getById(assignmentData.lesson);
             assignmentData.lesson = lessonRes.data.data;
-          } else if (firstLessonId._id) {
-            // Already an object, but might need to fetch full data with questions
-            const lessonRes = await lessonApi.getById(firstLessonId._id);
+          } else if (assignmentData.lesson._id && !assignmentData.lesson.questions) {
+            const lessonRes = await lessonApi.getById(assignmentData.lesson._id);
             assignmentData.lesson = lessonRes.data.data;
           }
         }
@@ -176,7 +174,7 @@ export default function AssignmentPage({ params }: { params: { id: string } }) {
     };
 
     fetchAssignment();
-  }, [params.id]);
+  }, [params]); // ← Update dependency to just [params]
 
   if (loading) {
     return (
